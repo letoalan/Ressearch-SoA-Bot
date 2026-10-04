@@ -20,6 +20,10 @@ export interface ChatDetailedResult {
   };
 }
 
+interface ExtendedRequestInit extends RequestInit {
+  targetAddressSpace?: 'loopback' | 'local' | 'public';
+}
+
 function resolveConfig(target: Provider | Settings): { url: string; apiKey?: string } {
   if (typeof target === 'string') {
     return { url: baseUrl(target) };
@@ -38,14 +42,33 @@ function getHeaders(apiKey?: string): Record<string, string> {
   return h;
 }
 
+/**
+ * Prépare les options de requête fetch.
+ * Pour les cibles localhost / 127.0.0.1 depuis une origine publique (ex: GitHub Pages),
+ * ajoute targetAddressSpace: 'loopback' pour respecter la spécification W3C Local Network Access (Chromium).
+ */
+function buildFetchInit(url: string, init: ExtendedRequestInit): RequestInit {
+  const isLoopback = url.includes('localhost') || url.includes('127.0.0.1');
+  if (isLoopback) {
+    return {
+      ...init,
+      targetAddressSpace: 'loopback',
+    } as RequestInit;
+  }
+  return init as RequestInit;
+}
+
 /** Récupère la liste des modèles disponibles sur le serveur */
 export async function listModels(target: Provider | Settings): Promise<string[]> {
   const { url, apiKey } = resolveConfig(target);
   if (!url) return [];
 
-  const r = await fetch(`${url}/models`, {
-    headers: getHeaders(apiKey),
-  });
+  const r = await fetch(
+    `${url}/models`,
+    buildFetchInit(url, {
+      headers: getHeaders(apiKey),
+    })
+  );
 
   if (!r.ok) {
     throw new Error(`Serveur LLM injoignable (${r.status} ${r.statusText})`);
@@ -68,19 +91,22 @@ export async function chatDetailed(
   const isOllama = typeof target === 'string' ? target === 'ollama' : target.provider === 'ollama';
 
   const t0 = performance.now();
-  const r = await fetch(`${url}/chat/completions`, {
-    method: 'POST',
-    headers: getHeaders(apiKey),
-    signal,
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature,
-      stream: false,
-      ...(max_tokens ? { max_tokens } : {}),
-      ...(json && isOllama ? { response_format: { type: 'json_object' } } : {}),
-    }),
-  });
+  const r = await fetch(
+    `${url}/chat/completions`,
+    buildFetchInit(url, {
+      method: 'POST',
+      headers: getHeaders(apiKey),
+      signal,
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature,
+        stream: false,
+        ...(max_tokens ? { max_tokens } : {}),
+        ...(json && isOllama ? { response_format: { type: 'json_object' } } : {}),
+      }),
+    })
+  );
 
   const durationMs = performance.now() - t0;
   if (!r.ok) {
@@ -130,18 +156,21 @@ export async function* chatStream(
   let firstTokenTime: number | null = null;
   let tokenCount = 0;
 
-  const r = await fetch(`${url}/chat/completions`, {
-    method: 'POST',
-    headers: getHeaders(apiKey),
-    signal,
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature,
-      stream: true,
-      ...(max_tokens ? { max_tokens } : {}),
-    }),
-  });
+  const r = await fetch(
+    `${url}/chat/completions`,
+    buildFetchInit(url, {
+      method: 'POST',
+      headers: getHeaders(apiKey),
+      signal,
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature,
+        stream: true,
+        ...(max_tokens ? { max_tokens } : {}),
+      }),
+    })
+  );
 
   if (!r.ok || !r.body) {
     throw new Error(`Erreur LLM ${r.status}: ${await r.text()}`);

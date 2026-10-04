@@ -39,9 +39,11 @@ export function Settings({
         if (!active) return;
         setModels([]);
         setLoadingModels(false);
-        if (hasMixedContentRisk) {
+        if (isHttps && isLocalHttpProvider) {
           setErr(
-            'Navigateur HTTPS : le navigateur bloque http://localhost. Utilisez un tunnel HTTPS ou une API distante ci-dessous.'
+            `Serveur ${
+              value.provider === 'lmstudio' ? 'LM Studio (:1234)' : 'Ollama (:11434)'
+            } injoignable sur localhost. Vérifiez qu'il est actif avec le CORS activé (« Enable CORS » dans LM Studio ou OLLAMA_ORIGINS=*) et autorisez l'accès au réseau local dans le navigateur.`
           );
         } else if (value.provider === 'ollama') {
           setErr(
@@ -101,15 +103,23 @@ export function Settings({
             </select>
           </label>
 
-          {hasMixedContentRisk && (
-            <div className="notice-box warning">
-              <strong>⚠️ Alerte Connexion HTTPS :</strong> Les navigateurs bloquent les appels directs
-              vers <code>http://localhost</code> depuis un site HTTPS (GitHub Pages).
-              <br />
-              <small>
-                Solutions : passez en mode <em>API distante / Tunnel HTTPS</em> (via Cloudflare Tunnel
-                ou Groq/OpenRouter), ou lancez l'application en local avec <code>npm run dev</code>.
-              </small>
+          {isHttps && isLocalHttpProvider && (
+            <div className="notice-box info">
+              <strong>🌐 Mode Local-First (GitHub Pages ➔ Machine locale) :</strong>
+              <p className="mt-xs">
+                L'interface est hébergée sur GitHub Pages, mais votre modèle tourne localement sur votre machine (aucune donnée ne transite par un serveur externe).
+              </p>
+              <ul className="help-checklist">
+                <li>
+                  <strong>LM Studio</strong> : cochez impérativement l'option <em>« Enable CORS »</em> dans l'onglet Developer.
+                </li>
+                <li>
+                  <strong>Ollama</strong> : démarrez avec <code>OLLAMA_ORIGINS="*"</code> (variable d'environnement).
+                </li>
+                <li>
+                  <strong>Chrome / Chromium</strong> : cliquez sur <em>« Autoriser »</em> si le navigateur demande la permission d'accès au réseau local (<em>Local Network Access</em>).
+                </li>
+              </ul>
             </div>
           )}
 

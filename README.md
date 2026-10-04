@@ -28,7 +28,7 @@ Le moteur intègre les optimisations chiffrées issues du plan [`SciBot-ameliora
 | Mode | Contexte | Fonctionnement LLM | Sources Documentaires |
 |---|---|---|---|
 | **Mode Local (V1/V2)** | `npm run dev` sur `http://localhost:5173` | Connexion directe à Ollama (`:11434`) ou LM Studio (`:1234`) | Proxy Vite transparent sans contrainte CORS |
-| **Mode Web (V2 - GitHub Pages)** | `https://votre-compte.github.io/Ressearch-SoA-Bot/` | Tunnel HTTPS local (Cloudflare/ngrok) ou API distante (Groq, OpenRouter, OpenAI-compatible) | Accès direct aux APIs + relais CORS transparent pour arXiv |
+| **Mode Web (V2 - GitHub Pages)** | `https://votre-compte.github.io/Ressearch-SoA-Bot/` | Modèle local sur votre machine via Loopback (`localhost`) OU API distante | Accès direct aux APIs + relais CORS transparent pour arXiv |
 
 ---
 
@@ -41,7 +41,7 @@ Le moteur intègre les optimisations chiffrées issues du plan [`SciBot-ameliora
 
 ---
 
-## 🌐 Déploiement sur GitHub Pages (Mode V2)
+## 🌐 Déploiement sur GitHub Pages (Mode Local-First)
 
 Le projet intègre un workflow GitHub Actions automatisé ([`.github/workflows/deploy.yml`](file:///.github/workflows/deploy.yml)).
 
@@ -51,17 +51,20 @@ Le projet intègre un workflow GitHub Actions automatisé ([`.github/workflows/d
 3. Sous **Build and deployment** ➔ **Source**, sélectionnez **GitHub Actions**.
 4. Lors de chaque commit sur la branche `main`, le bot est automatiquement compilé et déployé sur `https://<votre-compte>.github.io/<nom-du-repo>/`.
 
-### ⚠️ Note importante sur le *Mixed Content* en mode GitHub Pages :
-Les navigateurs modernes (Chrome, Firefox, Safari) interdisent par sécurité à une page servie en **HTTPS** (comme GitHub Pages) d'appeler directement un serveur en `http://localhost` non chiffré.
-Pour utiliser votre modèle local depuis votre page GitHub Pages, deux solutions très simples existent :
-1. **Un tunnel HTTPS gratuit vers votre machine** :
-   ```bash
-   # Avec Cloudflare Tunnel (gratuit, sans compte) :
-   cloudflared tunnel --url http://localhost:11434
-   ```
-   Renseignez l'URL fournie (ex. `https://xxxx.trycloudflare.com/v1`) dans le champ **URL Endpoint** de SciBot.
-2. **Une clé d'API distante compatible OpenAI** :
-   Sélectionnez *API distante / Tunnel HTTPS* dans les réglages et utilisez l'un des presets intégrés (**Groq** ou **OpenRouter**) avec votre clé personnelle (conservée localement dans votre navigateur).
+### 💻 Comment GitHub Pages communique directement avec votre LM Studio / Ollama local :
+Le JavaScript de l'application s'exécute **dans votre navigateur** sur votre poste : les requêtes vers `http://localhost:1234` ou `http://localhost:11434` partent donc de votre machine vers votre machine. GitHub n'est jamais dans la boucle.
+
+Pour assurer une communication fluide, SciBot intègre nativement la spécification W3C :
+1. **CORS local** :
+   - **LM Studio** : Dans l'onglet *Developer / Local Server*, cochez impérativement **« Enable CORS »**.
+   - **Ollama** : Démarrez avec `OLLAMA_ORIGINS="*"` (ou l'URL de votre GitHub Page).
+2. **Contenu mixte & Loopback** :
+   - Le standard W3C et les navigateurs modernes traitent `localhost` et `127.0.0.1` comme des *origines potentiellement fiables* (Secure Context).
+3. **Local Network Access (Chrome / Edge / Chromium)** :
+   - SciBot transmet automatiquement `targetAddressSpace: 'loopback'` dans ses appels réseau.
+   - Lorsque le navigateur affiche la demande de permission d'accès au réseau local, cliquez simplement sur **« Autoriser »** (réglages consultables dans `chrome://settings/content/localNetworkAccess`).
+4. **Option alternative (hors local)** :
+   - Si vous êtes en déplacement sans votre serveur local, le mode *API distante / Tunnel HTTPS* permet de renseigner une clé d'API (Groq, OpenRouter) conservée uniquement dans votre navigateur.
 
 ---
 
